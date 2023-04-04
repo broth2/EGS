@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 class Entity:
 
-    def __init__(self, approved, isPartner, name, address, description, homePage, phoneNo, nif, sku_list):
+    def __init__(self, approved, isPartner, name, address, description, homePage, phoneNo, nif, sku_list, externalID):
         self.id = uuid.uuid4().hex
         self.approved = approved
         self.isPartner = isPartner
@@ -20,6 +20,7 @@ class Entity:
         self.phoneNo = phoneNo
         self.nif = nif
         self.sku_list = sku_list
+        self.externalID = externalID
 
     def __str__(self):
         return  f'{{id:{self.id} \n' \
@@ -28,7 +29,7 @@ class Entity:
 def db_init():
     c = sqlite3.connect("entities.db").cursor()
     c.execute("CREATE TABLE IF NOT EXISTS entities("
-              "id TEXT PRIMARY KEY, approved TEXT, isPartner TEXT, name TEXT, address TEXT, description TEXT, homePage TEXT, phoneNo TEXT, nif TEXT, sku_list TEXT)"
+              "id TEXT PRIMARY KEY, approved TEXT, isPartner TEXT, name TEXT, address TEXT, description TEXT, homePage TEXT, phoneNo TEXT, nif TEXT, sku_list TEXT, externalID TEXT)"
               )
     c.connection.close()
 
@@ -77,11 +78,12 @@ def add_entity():
                       request.json["homePage"],
                       request.json["phoneNo"],
                       request.json["nif"],
-                      request.json["sku_list"])
+                      request.json["sku_list"],
+                      request.json["externalID"])
     
 
-    c.execute("INSERT INTO entities VALUES(?,?,?,?,?,?,?,?,?,?)",
-              (entity.id, 0, entity.isPartner, entity.name, entity.address, entity.description, entity.homePage, entity.phoneNo, entity.nif, entity.sku_list))
+    c.execute("INSERT INTO entities VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+              (entity.id, 0, entity.isPartner, entity.name, entity.address, entity.description, entity.homePage, entity.phoneNo, entity.nif, entity.sku_list, entity.externalID))
     db.commit()
     data = c.lastrowid
     return json.dumps(data)
@@ -140,11 +142,11 @@ def removeSKU(id, skuid):
     return json.dumps("SKU not associated to partner")
 
 def entitiesToJson(data):
-    prdtcs = [{'id': row[0], 'approved': row[1], 'isPartner': row[2], 'name': row[3], 'address': row[4], 'description': row[5], 'homePage': row[6], 'phoneNo': row[7], 'nif': row[8], 'sku_list': row[9] } for row in data]
+    prdtcs = [{'id': row[0], 'approved': row[1], 'isPartner': row[2], 'name': row[3], 'address': row[4], 'description': row[5], 'homePage': row[6], 'phoneNo': row[7], 'nif': row[8], 'sku_list': row[9], 'externalID': row[10] } for row in data]
     return prdtcs
 
 def entityToJson(row):
-    entty = {'id': row[0], 'approved': row[1], 'isPartner': row[2], 'name': row[3], 'address': row[4], 'description': row[5], 'homePage': row[6], 'phoneNo': row[7], 'nif': row[8], 'sku_list': row[9] }
+    entty = {'id': row[0], 'approved': row[1], 'isPartner': row[2], 'name': row[3], 'address': row[4], 'description': row[5], 'homePage': row[6], 'phoneNo': row[7], 'nif': row[8], 'sku_list': row[9], 'externalID': row[10]}
     return jsonify(entty)
 
 if __name__ == '__main__':
