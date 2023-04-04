@@ -1,0 +1,58 @@
+version: '3.1'
+
+
+services:
+
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password 
+    ports: 
+       - "9999:3306"
+    environment:
+      MYSQL_DATABASE: Lokal
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user
+      MYSQL_ROOT_PASSWORD: user
+    volumes:
+      # - ./db:/database
+      - datafiles:/var/lib/mysql
+      - ./Lokal/Tables_Lokal.sql:/docker-entrypoint-initdb.d/populate_db.sql            
+    networks:
+      net:
+        ipv4_address: 170.2.0.2
+    restart: always
+  
+  
+  flask1:
+    build: ./entities/app.py
+    container_name: entities
+    ports:
+      - "5001:5001"
+    restart:
+      always
+    environment:
+      - FLASK_APP=server
+      - FLASK_ENV=development
+    depends_on:
+      - db
+    networks:
+      net:
+        ipv4_address: 192.0.0.1
+  
+  flask:
+    build: ./products/app.py
+    container_name: products
+    ports:
+      - "5002:5002"
+    restart:
+      always
+    environment:
+      - FLASK_APP=server
+      - FLASK_ENV=development
+    depends_on:
+      - db
+    networks:
+      net:
+        ipv4_address: 192.0.0.1
+
+

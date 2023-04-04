@@ -43,8 +43,14 @@ def homepage():
 
 @app.route('/v1/entities', methods=['GET'])
 def get_entities():
+    page = request.args.get('page', default=1, type=int)
+    page_size = request.args.get('page_size', default=10, type=int)
+    offset = (page - 1) * page_size
+    in_offset = request.args.get('offset', default=offset, type=int)
+
+
     c = sqlite3.connect("entities.db").cursor()
-    c.execute("SELECT * FROM ENTITIES")
+    c.execute(f'SELECT * FROM ENTITIES LIMIT {page_size} OFFSET {in_offset}')
     data = c.fetchall()
     return jsonify(data)
 

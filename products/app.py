@@ -3,6 +3,7 @@ from flask import *
 import json
 import sqlite3
 
+
 app = Flask(__name__)
 
 class Manufacturer:
@@ -13,8 +14,8 @@ class Manufacturer:
         self.phone = phone
 
     def __str__(self):
-        return  f'id:{self.id} \n' \
-                f'name:{self.name} '
+        return  f'{{id:{self.id} \n' \
+                f'name:{self.name}}}'
 
 class Product:
     def __init__(self, name, releaseDate, quantity, price, photos, manufacturer):
@@ -27,17 +28,17 @@ class Product:
         self.manufacturer = manufacturer
 
     def __str__(self):
-        return  f'id:{self.id} \n' \
-                f'name:{self.name} '
+        return  f'{{id:{self.id} \n' \
+                f'name:{self.name}}}'
 
 
 def db_init():
     c = sqlite3.connect("products.db").cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS PRODUCTS("
-              "id TEXT, name TEXT, releaseDate TEXT, quantity TEXT, price TEXT, photos TEXT, manufacturer TEXT)"
+    c.execute("CREATE TABLE IF NOT EXISTS manufacturers("
+              "id TEXT PRIMARY KEY, name TEXT, homePage TEXT, phone TEXT)"
               )
-    c.execute("CREATE TABLE IF NOT EXISTS MANUFACTURERS("
-              "id TEXT, name TEXT, homePage TEXT, phone TEXT)"
+    c.execute("CREATE TABLE IF NOT EXISTS products("
+              "id TEXT PRIMARY KEY, name TEXT, releaseDate TEXT, quantity TEXT, price TEXT, photos TEXT, manufacturer_id TEXT)" #, FOREIGN KEY (manufacturer_id) REFERENCES manufacturers(id))"
               )
     c.connection.close()
 
@@ -48,10 +49,31 @@ def homepage():
 
 @app.route('/v1/products', methods=['GET'])
 def get_products():
+    page = request.args.get('page', default=1, type=int)
+    page_size = request.args.get('page_size', default=10, type=int)
+    offset = (page - 1) * page_size
+    in_offset = request.args.get('offset', default=offset, type=int)
+    srch = request.args.get('searchName', default="", type=str)
+
     c = sqlite3.connect("products.db").cursor()
-    c.execute("SELECT * FROM PRODUCTS")
+    query = f"SELECT * FROM products WHERE name LIKE ? LIMIT ? OFFSET ?"
+    c.execute(query, ('%' + srch + '%', page_size, in_offset))
     data = c.fetchall()
-    return jsonify(data)
+    products = productsToJson(data)
+
+    metadata = {
+        "searchName": srch,
+        'page': page,
+        'offset': in_offset,
+        'count': len(products)
+    }
+
+    response = {
+        'pagination': metadata,
+        'products': products
+    }
+
+    return jsonify(response)
 
 @app.route('/v1/product', methods=['POST'])
 def add_product():
@@ -65,25 +87,46 @@ def add_product():
                       request.json["manufacturer"])
     
 
-    c.execute("INSERT INTO PRODUCTS VALUES(?,?,?,?,?,?,?)",
+    c.execute("INSERT INTO products VALUES(?,?,?,?,?,?,?)",
               (product.id, product.name, product.releaseDate, product.quantity, product.price, product.photos, product.manufacturer))
     db.commit()
     data = c.lastrowid
     return json.dumps(data)
 
+@app.route('/v1/products', methods=['POST'])
+def add_products():
+    data = 0
+    db = sqlite3.connect("products.db")
+    c = db.cursor()
+    for entry in request.json:
+        product = Product(entry["name"],
+                        entry["releaseDate"],
+                        entry["quantity"],
+                        entry["price"],
+                        entry["photos"],
+                        entry["manufacturer"])
+
+        c.execute("INSERT INTO products VALUES(?,?,?,?,?,?,?)",
+                (product.id, product.name, product.releaseDate, product.quantity, product.price, product.photos, product.manufacturer))
+        data += 1
+    db.commit()
+    data = f"inserted {data} elements"
+    return json.dumps(data)
+
 @app.route('/v1/product/<id>', methods=['GET'])
 def getProductsById(id):    
     c = sqlite3.connect("products.db").cursor()
-    c.execute("SELECT * FROM PRODUCTS WHERE id=?", (id,))
+    c.execute("SELECT * FROM products WHERE id=?", (id,))
     data = c.fetchone()
-    return json.dumps(data)
+    prod = productToJson(data)
+    return prod
 
 @app.route('/v1/product/<id>', methods=['PUT'])
 def approveProduct(id):
     db = sqlite3.connect("products.db")
     c = db.cursor()
     qnt = request.json["quantity"]
-    c.execute("UPDATE PRODUCTS SET quantity = ? WHERE id=?", (qnt, id))
+    c.execute("UPDATE products SET quantity = ? WHERE id=?", (qnt, id))
     db.commit()
     return json.dumps("Product was successfully updated")
 
@@ -92,9 +135,18 @@ def approveProduct(id):
 def removeProduct(id):
     db = sqlite3.connect("products.db")
     c = db.cursor()
-    c.execute("DELETE FROM PRODUCTS WHERE id=?", (id,))
+    c.execute("DELETE FROM products WHERE id=?", (id,))
     db.commit()
     return json.dumps("Product was successfully removed")
+
+
+def productsToJson(data):
+    prdtcs = [{'id': row[0], 'name': row[1], 'releaseDate': row[2], 'quantity': row[3], 'price': row[4], 'photos': row[5], 'manufacturer': row[6] } for row in data]
+    return prdtcs
+
+def productToJson(row):
+    prdtc = {'id': row[0], 'name': row[1], 'releaseDate': row[2], 'quantity': row[3], 'price': row[4], 'photos': row[5], 'manufacturer': row[6] }
+    return jsonify(prdtc)
 
 if __name__ == '__main__':
     app.run(port=8888)
