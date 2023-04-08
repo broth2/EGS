@@ -123,13 +123,33 @@ def getProductsById(id):
 
 @app.route('/v1/product/<id>', methods=['PUT'])
 def approveProduct(id):
+    rtrn_str = ""
     db = sqlite3.connect("products.db")
     c = db.cursor()
-    qnt = request.json["quantity"]
-    c.execute("UPDATE products SET quantity = ? WHERE id=?", (qnt, id))
-    db.commit()
-    return json.dumps("Product was successfully updated")
+    if "quantity" in request.json:
+        qnt = request.json["quantity"]
+        c.execute("UPDATE products SET quantity = ? WHERE id=?", (qnt, id))
+        rtrn_str += f"quantity={qnt} "
+    if "price" in request.json:
+        prc = request.json["price"]
+        c.execute("UPDATE products SET price = ? WHERE id=?", (prc, id))
+        rtrn_str += f"price={prc} "
+    if "photos" in request.json:
+        pht_cntr = 0
+        c.execute("SELECT photos FROM products WHERE id=?", (id,))
+        old_photos = json.loads(c.fetchone()[0])
+        new_photos = request.json["photos"]
+        for photo in new_photos:
+            if photo not in old_photos:
+                old_photos.append(photo)
+                pht_cntr += 1
+        old_photos = parseToString(old_photos)
+        # photo list format example: '["www.pcdiga.com", "www.website.com", "www.images.pt", "www.wikipedi.org/objecto"]'
+        c.execute("UPDATE products SET photos = ? WHERE id=?", (old_photos, id))
+        rtrn_str += f"photos+={pht_cntr}"
 
+    db.commit()
+    return json.dumps(f"Product was successfully updated to {rtrn_str}")
 
 @app.route('/v1/product/<id>', methods=['DELETE'])
 def removeProduct(id):
@@ -147,6 +167,17 @@ def productsToJson(data):
 def productToJson(row):
     prdtc = {'id': row[0], 'name': row[1], 'releaseDate': row[2], 'quantity': row[3], 'price': row[4], 'photos': row[5], 'manufacturer': row[6] }
     return jsonify(prdtc)
+
+def parseToString(mylist):
+    new_string = "["
+    for a in mylist:
+        new_string += '"'
+        new_string += a
+        new_string += '", '
+    new_string = new_string[:-2]
+    new_string += "]"
+    print(new_string)
+    return new_string
 
 if __name__ == '__main__':
     app.run(port=8888)
