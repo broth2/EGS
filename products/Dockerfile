@@ -6,4 +6,6 @@ RUN pip install --upgrade pip
 WORKDIR /app_cont
 COPY . /app_cont
 RUN pip --no-cache-dir install -r requirements.txt
+COPY app.py app.py
+EXPOSE 8888/tcp
 CMD ["python3", "app.py"]
